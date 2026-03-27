@@ -238,6 +238,17 @@ impl DaemonApp {
 
 impl eframe::App for DaemonApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Ensure window starts hidden on first frame
+        #[cfg(target_os = "macos")]
+        {
+            static ONCE: std::sync::Once = std::sync::Once::new();
+            ONCE.call_once(|| {
+                if !self.popup_open {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+                }
+            });
+        }
+
         // Check for hotkey events
         if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
             if event.id == self.hotkey_id && !self.popup_open {

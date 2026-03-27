@@ -21,6 +21,8 @@ pub fn init() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(mtm) = MainThreadMarker::new() {
             let app = NSApplication::sharedApplication(mtm);
             app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+            // Ensure application is not focused at startup
+            unsafe { app.deactivate(); }
         }
 
         if !check_accessibility_permissions() {
