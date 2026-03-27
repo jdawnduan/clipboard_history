@@ -193,8 +193,8 @@ impl DaemonApp {
                     platform::deactivate_app();
 
                     // Small delay to ensure focus has returned to the previous window
-                    // Increased delay to 1000ms and added more checks
-                    std::thread::sleep(Duration::from_millis(1000));
+                    // Reduced delay to 500ms
+                    std::thread::sleep(Duration::from_millis(500));
                     
                     println!("Simulating Cmd+V using enigo Meta+V...");
                     // Release all modifiers first in case they are stuck
@@ -202,14 +202,14 @@ impl DaemonApp {
                     let _ = self.enigo.key(Key::Meta, Direction::Release);
                     let _ = self.enigo.key(Key::Shift, Direction::Release);
                     let _ = self.enigo.key(Key::Control, Direction::Release);
-                    std::thread::sleep(Duration::from_millis(100));
+                    std::thread::sleep(Duration::from_millis(50));
 
                     let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    std::thread::sleep(Duration::from_millis(200));
+                    std::thread::sleep(Duration::from_millis(100));
                     let _ = self.enigo.key(Key::Unicode('v'), Direction::Press);
-                    std::thread::sleep(Duration::from_millis(200));
+                    std::thread::sleep(Duration::from_millis(100));
                     let _ = self.enigo.key(Key::Unicode('v'), Direction::Release);
-                    std::thread::sleep(Duration::from_millis(200));
+                    std::thread::sleep(Duration::from_millis(100));
                     let _ = self.enigo.key(Key::Meta, Direction::Release);
                     println!("Simulated Cmd+V complete");
                 }
