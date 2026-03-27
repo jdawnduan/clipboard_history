@@ -9,6 +9,8 @@ use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager,
 };
 use history::ClipboardHistory;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use enigo::{Enigo, Settings, Key, Direction};
 
@@ -115,6 +117,10 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
     // Create hotkey manager - must be created on main thread for macOS
     let manager = GlobalHotKeyManager::new()?;
 
+    // Shared flag to ignore clipboard changes triggered by the app itself
+    let skip_next_monitor = Arc::new(AtomicBool::new(false));
+    let skip_next_monitor_clone = skip_next_monitor.clone();
+
     // Register Cmd+Option+V
     let hotkey = HotKey::new(Some(Modifiers::META | Modifiers::ALT), Code::KeyV);
     let hotkey_id = hotkey.id();
@@ -126,7 +132,7 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            if let Err(e) = monitor_clipboard().await {
+            if let Err(e) = monitor_clipboard(skip_next_monitor_clone).await {
                 eprintln!("Clipboard monitor error: {}", e);
             }
         });
@@ -150,7 +156,7 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
         "Clipboard History Daemon",
         options,
         Box::new(move |_cc| {
-            Ok(Box::new(DaemonApp::new(hotkey_id)))
+            Ok(Box::new(DaemonApp::new(hotkey_id, skip_next_monitor)))
         }),
     ).map_err(|e| format!("Failed to run daemon: {}", e))?;
 
@@ -162,22 +168,28 @@ struct DaemonApp {
     popup_open: bool,
     entries: Vec<String>,
     enigo: Enigo,
+    skip_next_monitor: Arc<AtomicBool>,
 }
 
 impl DaemonApp {
-    fn new(hotkey_id: u32) -> Self {
+    fn new(hotkey_id: u32, skip_next_monitor: Arc<AtomicBool>) -> Self {
         Self {
             hotkey_id,
             popup_open: false,
             entries: Vec::new(),
             enigo: Enigo::new(&Settings::default()).unwrap(),
+            skip_next_monitor,
         }
     }
 
     fn paste_entry(&mut self, index: usize, ctx: &egui::Context) {
         if let Some(content) = self.entries.get(index) {
+            // Signal monitor to ignore this change
+            self.skip_next_monitor.store(true, Ordering::SeqCst);
+            
             if let Err(e) = clipboard::set_clipboard(content) {
                 eprintln!("Failed to set clipboard: {}", e);
+                self.skip_next_monitor.store(false, Ordering::SeqCst);
             } else {
                 println!("Pasted entry {}", index);
                 self.popup_open = false;
@@ -341,32 +353,39 @@ impl eframe::App for DaemonApp {
     }
 }
 
-async fn monitor_clipboard() -> Result<(), Box<dyn std::error::Error>> {
+async fn monitor_clipboard(skip_next: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
     let mut history = ClipboardHistory::load()?;
     let mut last_content: Option<String> = None;
 
     loop {
         if let Ok(content) = clipboard::get_clipboard() {
             let is_new = last_content.as_ref() != Some(&content);
-            let is_valid_size = content.len() <= MAX_ENTRY_BYTES;
 
-            if is_new && is_valid_size && !content.is_empty() {
-                println!(
-                    "New clipboard entry: {} bytes - {}",
-                    content.len(),
-                    truncate_preview(&content, 40)
-                );
+            if is_new {
+                if skip_next.swap(false, Ordering::SeqCst) {
+                    last_content = Some(content);
+                } else {
+                    let is_valid_size = content.len() <= MAX_ENTRY_BYTES;
 
-                history.add(content.clone(), MAX_HISTORY_SIZE);
-                history.save()?;
-                last_content = Some(content);
-            } else if is_new && !is_valid_size {
-                println!(
-                    "Skipped entry: {} bytes exceeds {} KB limit",
-                    content.len(),
-                    MAX_ENTRY_BYTES / 1024
-                );
-                last_content = Some(content);
+                    if is_valid_size && !content.is_empty() {
+                        println!(
+                            "New clipboard entry: {} bytes - {}",
+                            content.len(),
+                            truncate_preview(&content, 40)
+                        );
+
+                        history.add(content.clone(), MAX_HISTORY_SIZE);
+                        history.save()?;
+                        last_content = Some(content);
+                    } else if !is_valid_size {
+                        println!(
+                            "Skipped entry: {} bytes exceeds {} KB limit",
+                            content.len(),
+                            MAX_ENTRY_BYTES / 1024
+                        );
+                        last_content = Some(content);
+                    }
+                }
             }
         }
 
