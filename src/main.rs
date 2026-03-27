@@ -140,7 +140,7 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
             .with_always_on_top()
             .with_decorations(true)
             .with_title("Clipboard History")
-            .with_active(true)
+            .with_active(false)
             .with_visible(false),
         centered: true,
         ..Default::default()
