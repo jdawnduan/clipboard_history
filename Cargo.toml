@@ -19,6 +19,16 @@ dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
 # Global hotkeys
 global-hotkey = "0.6"
+# Keyboard simulation
+enigo = "0.2"
+# macOS background app
+objc2 = "0.5"
+objc2-app-kit = { version = "0.2", features = ["NSApplication"] }
+objc2-foundation = "0.2"
 # GUI for popup
 eframe = "0.29"
 egui = "0.29"
+# macOS specific
+core-foundation = "0.10"
+core-graphics = "0.24"
+macos-accessibility-client = "0.0.1"

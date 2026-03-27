@@ -1,15 +1,16 @@
 mod clipboard;
 mod history;
 mod platform;
-mod popup;
 
 use clap::{Parser, Subcommand};
+use eframe::egui;
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
     GlobalHotKeyEvent, GlobalHotKeyManager,
 };
 use history::ClipboardHistory;
 use std::time::Duration;
+use enigo::{Enigo, Settings, Key, Direction};
 
 const MAX_HISTORY_SIZE: usize = 20;
 const MAX_ENTRY_BYTES: usize = 128 * 1024; // 128 KB
@@ -57,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Daemon => {
             println!("Starting clipboard history daemon...");
             println!("Max entries: {}, Max entry size: {} KB", MAX_HISTORY_SIZE, MAX_ENTRY_BYTES / 1024);
-            println!("Press Cmd+Shift+V to show clipboard history popup");
+            println!("Press Cmd+Option+V to show clipboard history popup");
             run_daemon_with_hotkey()?;
         }
         Commands::List { count } => {
@@ -109,11 +110,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+
 fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
-    // Create hotkey manager
+    // Create hotkey manager - must be created on main thread for macOS
     let manager = GlobalHotKeyManager::new()?;
 
-    // Register Cmd+Option+V (on macOS, Meta = Cmd, Alt = Option)
+    // Register Cmd+Option+V
     let hotkey = HotKey::new(Some(Modifiers::META | Modifiers::ALT), Code::KeyV);
     let hotkey_id = hotkey.id();
     manager.register(hotkey)?;
@@ -121,42 +123,210 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
     println!("Registered hotkey: Cmd+Option+V (id: {})", hotkey_id);
 
     // Spawn clipboard monitoring thread
-    let _monitor_handle = std::thread::spawn(move || {
+    std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            monitor_clipboard().await.unwrap();
+            if let Err(e) = monitor_clipboard().await {
+                eprintln!("Clipboard monitor error: {}", e);
+            }
         });
     });
 
-    // Main event loop for hotkey
-    let hotkey_receiver = GlobalHotKeyEvent::receiver();
+    // Use eframe to create a hidden window that provides the event loop
+    // This is required on macOS for global hotkeys to work
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([500.0, 400.0])
+            .with_always_on_top()
+            .with_decorations(true)
+            .with_title("Clipboard History")
+            .with_active(true)
+            .with_visible(false),
+        centered: true,
+        ..Default::default()
+    };
 
-    loop {
+    eframe::run_native(
+        "Clipboard History Daemon",
+        options,
+        Box::new(move |_cc| {
+            Ok(Box::new(DaemonApp::new(hotkey_id)))
+        }),
+    ).map_err(|e| format!("Failed to run daemon: {}", e))?;
+
+    Ok(())
+}
+
+struct DaemonApp {
+    hotkey_id: u32,
+    popup_open: bool,
+    entries: Vec<String>,
+    enigo: Enigo,
+}
+
+impl DaemonApp {
+    fn new(hotkey_id: u32) -> Self {
+        Self {
+            hotkey_id,
+            popup_open: false,
+            entries: Vec::new(),
+            enigo: Enigo::new(&Settings::default()).unwrap(),
+        }
+    }
+
+    fn paste_entry(&mut self, index: usize, ctx: &egui::Context) {
+        if let Some(content) = self.entries.get(index) {
+            if let Err(e) = clipboard::set_clipboard(content) {
+                eprintln!("Failed to set clipboard: {}", e);
+            } else {
+                println!("Pasted entry {}", index);
+                self.popup_open = false;
+                // Hide window immediately before simulating paste
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus); // Might help trigger app deactivation
+                
+                // On macOS, Cmd+V
+                #[cfg(target_os = "macos")]
+                {
+                    use enigo::Keyboard;
+                    // Force the app to deactivate to help window switching
+                    platform::deactivate_app();
+
+                    // Small delay to ensure focus has returned to the previous window
+                    // Increased delay to 1000ms and added more checks
+                    std::thread::sleep(Duration::from_millis(1000));
+                    
+                    println!("Simulating Cmd+V using enigo Meta+V...");
+                    // Release all modifiers first in case they are stuck
+                    let _ = self.enigo.key(Key::Alt, Direction::Release);
+                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    let _ = self.enigo.key(Key::Shift, Direction::Release);
+                    let _ = self.enigo.key(Key::Control, Direction::Release);
+                    std::thread::sleep(Duration::from_millis(100));
+
+                    let _ = self.enigo.key(Key::Meta, Direction::Press);
+                    std::thread::sleep(Duration::from_millis(200));
+                    let _ = self.enigo.key(Key::Unicode('v'), Direction::Press);
+                    std::thread::sleep(Duration::from_millis(200));
+                    let _ = self.enigo.key(Key::Unicode('v'), Direction::Release);
+                    std::thread::sleep(Duration::from_millis(200));
+                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    println!("Simulated Cmd+V complete");
+                }
+                
+                // On Linux/Windows, Ctrl+V
+                #[cfg(not(target_os = "macos"))]
+                {
+                    std::thread::sleep(Duration::from_millis(300));
+                    let _ = self.enigo.key(Key::Control, Direction::Press);
+                    let _ = self.enigo.key(Key::Unicode('v'), Direction::Click);
+                    let _ = self.enigo.key(Key::Control, Direction::Release);
+                }
+            }
+        }
+    }
+
+    fn truncate_display(s: &str, max_len: usize) -> String {
+        let s = s.replace('\n', "⏎").replace('\r', "").replace('\t', "→");
+        if s.chars().count() > max_len {
+            format!("{}...", s.chars().take(max_len).collect::<String>())
+        } else {
+            s
+        }
+    }
+}
+
+impl eframe::App for DaemonApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Check for hotkey events
-        if let Ok(event) = hotkey_receiver.try_recv() {
-            if event.id == hotkey_id {
+        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
+            if event.id == self.hotkey_id && !self.popup_open {
                 println!("Hotkey pressed! Showing clipboard history...");
 
                 // Load history and show popup
                 if let Ok(history) = ClipboardHistory::load() {
-                    let entries: Vec<String> = history
+                    self.entries = history
                         .entries()
                         .iter()
                         .take(10)
                         .map(|e| e.content.clone())
                         .collect();
 
-                    if entries.is_empty() {
+                    if self.entries.is_empty() {
                         println!("No clipboard history to show.");
                     } else {
-                        // Show popup on main thread (required for macOS)
-                        popup::show_popup(entries);
+                        self.popup_open = true;
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                     }
                 }
             }
         }
 
-        std::thread::sleep(Duration::from_millis(50));
+        if self.popup_open {
+            // Handle keyboard input for number selection
+            let mut selected_index: Option<usize> = None;
+
+            ctx.input(|i| {
+                // Check for number keys 1-9 and 0
+                for (key, index) in [
+                    (egui::Key::Num1, 0),
+                    (egui::Key::Num2, 1),
+                    (egui::Key::Num3, 2),
+                    (egui::Key::Num4, 3),
+                    (egui::Key::Num5, 4),
+                    (egui::Key::Num6, 5),
+                    (egui::Key::Num7, 6),
+                    (egui::Key::Num8, 7),
+                    (egui::Key::Num9, 8),
+                    (egui::Key::Num0, 9),
+                ] {
+                    if i.key_pressed(key) && index < self.entries.len() {
+                        selected_index = Some(index);
+                    }
+                }
+
+                // Escape to close
+                if i.key_pressed(egui::Key::Escape) {
+                    self.popup_open = false;
+                }
+            });
+
+            if !self.popup_open {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            } else {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.heading("📋 Clipboard History");
+                    ui.add_space(5.0);
+                    ui.label("Press 1-9 (0 for 10) to select and paste, Esc to close");
+                    ui.add_space(10.0);
+                    ui.separator();
+
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        for (i, entry) in self.entries.iter().enumerate() {
+                            let display_num = if i == 9 { 0 } else { i + 1 };
+                            let preview = Self::truncate_display(entry, 70);
+
+                            let label = format!("[{}] {}", display_num, preview);
+
+                            let response = ui.selectable_label(false, &label);
+
+                            if response.clicked() || response.double_clicked() {
+                                selected_index = Some(i);
+                            }
+                        }
+                    });
+                });
+
+                // Handle selection (from keyboard or click)
+                if let Some(idx) = selected_index {
+                    self.paste_entry(idx, ctx);
+                }
+            }
+        }
+
+        // Request continuous repainting to check for hotkey events
+        ctx.request_repaint_after(Duration::from_millis(100));
     }
 }
 

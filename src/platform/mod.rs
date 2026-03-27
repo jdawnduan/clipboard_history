@@ -14,3 +14,11 @@ pub fn init() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[cfg(target_os = "macos")]
+pub fn deactivate_app() {
+    macos::deactivate_app();
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn deactivate_app() {}
