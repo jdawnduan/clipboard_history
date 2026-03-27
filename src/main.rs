@@ -113,12 +113,12 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
     // Create hotkey manager
     let manager = GlobalHotKeyManager::new()?;
 
-    // Register Cmd+Shift+V (on macOS, Meta = Cmd)
-    let hotkey = HotKey::new(Some(Modifiers::META | Modifiers::SHIFT), Code::KeyV);
+    // Register Cmd+Option+V (on macOS, Meta = Cmd, Alt = Option)
+    let hotkey = HotKey::new(Some(Modifiers::META | Modifiers::ALT), Code::KeyV);
     let hotkey_id = hotkey.id();
     manager.register(hotkey)?;
 
-    println!("Registered hotkey: Cmd+Shift+V (id: {})", hotkey_id);
+    println!("Registered hotkey: Cmd+Option+V (id: {})", hotkey_id);
 
     // Spawn clipboard monitoring thread
     let _monitor_handle = std::thread::spawn(move || {
@@ -149,11 +149,8 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
                     if entries.is_empty() {
                         println!("No clipboard history to show.");
                     } else {
-                        // Show popup in a new thread to not block the event loop
-                        let entries_clone = entries.clone();
-                        std::thread::spawn(move || {
-                            popup::show_popup(entries_clone);
-                        });
+                        // Show popup on main thread (required for macOS)
+                        popup::show_popup(entries);
                     }
                 }
             }

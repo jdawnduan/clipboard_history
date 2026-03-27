@@ -1,39 +1,49 @@
 use eframe::egui;
 
 pub fn show_popup(entries: Vec<String>) {
+    println!("Opening popup with {} entries...", entries.len());
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([500.0, 400.0])
             .with_always_on_top()
             .with_decorations(true)
-            .with_title("Clipboard History"),
+            .with_title("Clipboard History")
+            .with_active(true),
+        centered: true,
         ..Default::default()
     };
 
-    let _ = eframe::run_native(
+    match eframe::run_native(
         "Clipboard History",
         options,
         Box::new(|_cc| Ok(Box::new(ClipboardPopup::new(entries)))),
-    );
+    ) {
+        Ok(_) => println!("Popup closed normally"),
+        Err(e) => eprintln!("Popup error: {}", e),
+    }
 }
 
 struct ClipboardPopup {
     entries: Vec<String>,
-    selected: Option<usize>,
+    should_close: bool,
 }
 
 impl ClipboardPopup {
     fn new(entries: Vec<String>) -> Self {
         Self {
             entries,
-            selected: None,
+            should_close: false,
         }
     }
 
-    fn paste_entry(&self, index: usize) {
+    fn paste_entry(&mut self, index: usize) {
         if let Some(content) = self.entries.get(index) {
             if let Err(e) = crate::clipboard::set_clipboard(content) {
                 eprintln!("Failed to set clipboard: {}", e);
+            } else {
+                println!("Pasted entry {}", index);
+                self.should_close = true;
             }
         }
     }
@@ -50,7 +60,15 @@ impl ClipboardPopup {
 
 impl eframe::App for ClipboardPopup {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Handle close request
+        if self.should_close {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            return;
+        }
+
         // Handle keyboard input for number selection
+        let mut selected_index: Option<usize> = None;
+
         ctx.input(|i| {
             // Check for number keys 1-9 and 0
             for (key, index) in [
@@ -66,28 +84,25 @@ impl eframe::App for ClipboardPopup {
                 (egui::Key::Num0, 9),
             ] {
                 if i.key_pressed(key) && index < self.entries.len() {
-                    self.selected = Some(index);
+                    selected_index = Some(index);
                 }
             }
 
             // Escape to close
             if i.key_pressed(egui::Key::Escape) {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
-
-            // Enter to confirm selection
-            if i.key_pressed(egui::Key::Enter) {
-                if let Some(idx) = self.selected {
-                    self.paste_entry(idx);
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
+                self.should_close = true;
             }
         });
+
+        // Process selection after input handling
+        if let Some(idx) = selected_index {
+            self.paste_entry(idx);
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("📋 Clipboard History");
             ui.add_space(5.0);
-            ui.label("Press 1-9 (0 for 10) to select, Enter to paste, Esc to close");
+            ui.label("Press 1-9 (0 for 10) to select and paste, Esc to close");
             ui.add_space(10.0);
             ui.separator();
 
@@ -95,28 +110,21 @@ impl eframe::App for ClipboardPopup {
                 for (i, entry) in self.entries.iter().enumerate() {
                     let display_num = if i == 9 { 0 } else { i + 1 };
                     let preview = Self::truncate_display(entry, 70);
-                    let is_selected = self.selected == Some(i);
 
                     let label = format!("[{}] {}", display_num, preview);
 
-                    let response = ui.selectable_label(is_selected, &label);
+                    let response = ui.selectable_label(false, &label);
 
-                    if response.clicked() {
-                        self.selected = Some(i);
-                    }
-
-                    if response.double_clicked() {
-                        self.paste_entry(i);
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    if response.clicked() || response.double_clicked() {
+                        selected_index = Some(i);
                     }
                 }
             });
         });
 
-        // If a number key was pressed, paste and close
-        if let Some(idx) = self.selected.take() {
+        // Handle click selection
+        if let Some(idx) = selected_index {
             self.paste_entry(idx);
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }
 }
