@@ -49,7 +49,7 @@ Once installed as a service, you can manage it using `brew services`:
 The first time you start the daemon (either via `brew services` or manually), macOS will ask for **Accessibility** permissions. This is required for:
 1.  Global hotkey support (`Cmd+Option+v`).
 2.  Select from 1 to 10 (0 means 10) past entries.
-2.  Cmd+v to do paste into your active application.
+2.  `Cmd+v` to do paste into your active application.
 
 If it doesn't work, ensure `clipboard-history` (or your terminal/Homebrew) is enabled in **System Settings > Privacy & Security > Accessibility**.
 
