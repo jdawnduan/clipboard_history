@@ -10,9 +10,10 @@ You can install `clipboard-history` via Homebrew by creating a local tap or usin
     cd clipboard_history
     ```
 
-2.  **Install via the local formula:**
+2.  **Install via the personal tap:**
     ```bash
-    brew install --build-from-source ./clipboard-history.rb
+    brew tap jdawnduan/tap
+    brew install jdawnduan/tap/clipboard-history
     ```
 
 3.  **Start the daemon as a service:**
@@ -54,17 +55,3 @@ The first time you start the daemon (either via `brew services` or manually), ma
 If it doesn't work, ensure `clipboard-history` (or your terminal/Homebrew) is enabled in **System Settings > Privacy & Security > Accessibility**.
 
 Once the service is started and permissions are granted, you can use the `clipboard-history` CLI from anywhere.
-
-### Creating a Tap (Optional)
-
-If you want to share this formula with others, you can create a Homebrew Tap:
-
-1.  Create a new repository on GitHub named `homebrew-tap`.
-2.  Move the `clipboard-history.rb` into that repository.
-3.  Others can then install it with:
-    ```bash
-    brew tap <your-username>/tap
-    brew install clipboard-history
-    ```
-
-Note: To use the formula without `--build-from-source`, you should create a GitHub release and update the `url` and `sha256` in `clipboard-history.rb`.
