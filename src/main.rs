@@ -193,8 +193,8 @@ impl DaemonApp {
                     platform::deactivate_app();
 
                     // Small delay to ensure focus has returned to the previous window
-                    // Reduced delay to 500ms
-                    std::thread::sleep(Duration::from_millis(500));
+                    // Reduced delay to 250ms
+                    std::thread::sleep(Duration::from_millis(50));
                     
                     println!("Simulating Cmd+V using enigo Meta+V...");
                     // Release all modifiers first in case they are stuck
@@ -202,14 +202,14 @@ impl DaemonApp {
                     let _ = self.enigo.key(Key::Meta, Direction::Release);
                     let _ = self.enigo.key(Key::Shift, Direction::Release);
                     let _ = self.enigo.key(Key::Control, Direction::Release);
-                    std::thread::sleep(Duration::from_millis(50));
+                    std::thread::sleep(Duration::from_millis(5));
 
                     let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    std::thread::sleep(Duration::from_millis(100));
+                    std::thread::sleep(Duration::from_millis(10));
                     let _ = self.enigo.key(Key::Unicode('v'), Direction::Press);
-                    std::thread::sleep(Duration::from_millis(100));
+                    std::thread::sleep(Duration::from_millis(10));
                     let _ = self.enigo.key(Key::Unicode('v'), Direction::Release);
-                    std::thread::sleep(Duration::from_millis(100));
+                    std::thread::sleep(Duration::from_millis(10));
                     let _ = self.enigo.key(Key::Meta, Direction::Release);
                     println!("Simulated Cmd+V complete");
                 }
@@ -217,7 +217,7 @@ impl DaemonApp {
                 // On Linux/Windows, Ctrl+V
                 #[cfg(not(target_os = "macos"))]
                 {
-                    std::thread::sleep(Duration::from_millis(300));
+                    std::thread::sleep(Duration::from_millis(150));
                     let _ = self.enigo.key(Key::Control, Direction::Press);
                     let _ = self.enigo.key(Key::Unicode('v'), Direction::Click);
                     let _ = self.enigo.key(Key::Control, Direction::Release);
