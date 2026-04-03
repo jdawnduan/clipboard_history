@@ -1,0 +1,261 @@
+<section class="module" id="module-5" style="background: var(--color-bg)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">05</span>
+      <h1 class="module-title">When Things Go Wrong</h1>
+      <p class="module-subtitle">Debugging intuition for clipboard history problems</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Three Most Common Problems</h2>
+        <p>When Clipboard History doesn't work, it's usually one of these three things:</p>
+        
+        <div class="icon-rows">
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-error)">🔐</div>
+            <div>
+              <strong>Accessibility Permissions</strong>
+              <p>macOS blocks apps from simulating keyboard input without permission</p>
+            </div>
+          </div>
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-warning, #D4A843)">🔑</div>
+            <div>
+              <strong>Hotkey Not Registered</strong>
+              <p>The app can't see your Cmd+Option+V press</p>
+            </div>
+          </div>
+          <div class="icon-row">
+            <div class="icon-circle" style="background: var(--color-success)">💾</div>
+            <div>
+              <strong>History Not Saving</strong>
+              <p>Entries disappear after restart</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Problem 1: Accessibility Permissions</h2>
+        <p>When you select from the popup, the app needs to simulate pressing Cmd+V to paste. macOS blocks this by default for security reasons (otherwise, malicious apps could type things for you!).</p>
+        <p><strong>Symptoms:</strong> The popup appears, you select an item, but nothing gets pasted.</p>
+        <p><strong>Fix:</strong> Go to System Settings → Privacy & Security → Accessibility → enable Clipboard History (or your terminal app if running from there).</p>
+        
+        <div class="callout callout-warning">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why This Matters</strong>
+            <p>Accessibility permissions let apps control your keyboard. This is why Clipboard History needs explicit approval — it's a security feature, not a bug!</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Problem 2: Hotkey Not Working</h2>
+        <p>The hotkey registration can fail if another app is already using that combination.</p>
+        <p><strong>Symptoms:</strong> Nothing happens when you press Cmd+Option+V.</p>
+        <p><strong>Debug step:</strong> Check the console output. The app prints messages when it registers (or fails to register) the hotkey.</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CONSOLE</span>
+            <pre><code><span class="code-line">Starting clipboard history daemon...</span>
+<span class="code-line">Registered hotkey: Cmd+Option+V (id: 1)</span>
+<span class="code-line">Press Cmd+Option+V to show clipboard history popup</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">The daemon is starting...</p>
+              <p class="tl">Success! The hotkey was registered with ID 1...</p>
+              <p class="tl">Instructions for using the app</p>
+            </div>
+          </div>
+        </div>
+
+        <p>If you see an error instead of "Registered hotkey", another app might be claiming that shortcut.</p>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Problem 3: History Not Persisting</h2>
+        <p>If your clipboard history disappears after restart, the app might not have permission to write to its data folder.</p>
+        <p><strong>Location:</strong> On macOS, history is saved to:</p>
+        <code>~/Library/Application Support/clipboard-history/history.json</code>
+        <p><strong>Debug step:</strong> Check if the file exists and is writable:</p>
+
+        <div class="step-cards">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Open Finder</strong>
+              <p>Press Cmd+Shift+G and paste the path above</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Check for history.json</strong>
+              <p>If it exists, the app is saving correctly</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Check file size</strong>
+              <p>Empty file = nothing was saved; has content = good!</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Debugging Mindset</h2>
+        <p>When something breaks, good engineers follow a systematic approach:</p>
+        
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-step-num">1</div>
+            <p>Observe</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">2</div>
+            <p>Hypothesize</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">3</div>
+            <p>Test</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">4</div>
+            <p>Fix</p>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Key Insight</strong>
+            <p>The skill isn't knowing the answer — it's knowing how to find it. Systematic debugging works for AI-assisted coding too: describe the symptom, not the solution, and let the AI help you investigate.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Module 5 Quiz</h2>
+
+        <div class="quiz-container" id="quiz-module5">
+          <div class="quiz-question-block"
+               data-correct="option-b"
+               data-explanation-right="Exactly! The popup appearing means the hotkey worked. If the paste didn't happen, the keyboard simulation failed — usually because of missing accessibility permissions."
+               data-explanation-wrong="Not quite. The popup appearing is actually evidence the hotkey IS working. The issue is after that point — the paste simulation.">
+            <h3 class="quiz-question">The popup appears when you press Cmd+Option+V, but nothing pastes when you select an item. What's likely the cause?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The hotkey wasn't registered correctly</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Missing accessibility permissions for keyboard simulation</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The history file is corrupted</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The app is running on an unsupported macOS version</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-d"
+               data-explanation-right="Right! Systematic debugging means narrowing down possibilities step by step, rather than guessing randomly."
+               data-explanation-wrong="Not quite. The observe → hypothesize → test → fix cycle is the foundation of debugging. Skipping steps leads to wasted time on wrong fixes.">
+            <h3 class="quiz-question">What's the first step in debugging when Clipboard History doesn't work?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Reinstall the application</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Ask someone who knows the answer</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Delete all app data and start fresh</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Observe what actually happens and form a hypothesis</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module5')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module5')">Try Again</button>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You're Done!</h2>
+        <p>You've learned how clipboard history works — from hotkey to storage, with all the clever tricks in between.</p>
+        <p>Remember these key concepts:</p>
+        
+        <div class="step-cards">
+          <div class="step-card">
+            <div class="step-num">✓</div>
+            <div class="step-body">
+              <strong>Daemons</strong>
+              <p>Background processes that wait for events</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">✓</div>
+            <div class="step-body">
+              <strong>Components</strong>
+              <p>Separated responsibilities make code maintainable</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">✓</div>
+            <div class="step-body">
+              <strong>Concurrency</strong>
+              <p>Multiple things happening at once via threads</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">✓</div>
+            <div class="step-body">
+              <strong>Flags</strong>
+              <p>Signals between parts of a program to coordinate behavior</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">✓</div>
+            <div class="step-body">
+              <strong>Debugging</strong>
+              <p>Observe → Hypothesize → Test → Fix</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">🎓</div>
+          <div class="callout-content">
+            <strong class="callout-title">Keep Learning</strong>
+            <p>The best way to get better at understanding code is to look at more code. Each project teaches you new patterns and vocabulary.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>

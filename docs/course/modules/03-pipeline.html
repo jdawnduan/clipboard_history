@@ -1,0 +1,196 @@
+<section class="module" id="module-3" style="background: var(--color-bg)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">03</span>
+      <h1 class="module-title">The Data Pipeline</h1>
+      <p class="module-subtitle">How clipboard changes flow through the system</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Two Loops, One Mission</h2>
+        <p>The clipboard history app runs <span class="term" data-definition="Concurrency means doing multiple things at once — like having multiple threads of thought. In programming, it's about having different parts of a program running simultaneously.">concurrently</span> — two different things are happening at the same time:</p>
+        
+        <div class="pattern-cards">
+          <div class="pattern-card" style="border-top-color: var(--color-actor-1)">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">🔄</div>
+            <h4 class="pattern-title">Monitoring Loop</h4>
+            <p class="pattern-desc">Every 500ms, checks if the clipboard changed. Like a security guard doing rounds.</p>
+          </div>
+          <div class="pattern-card" style="border-top-color: var(--color-actor-2)">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">👂</div>
+            <h4 class="pattern-title">Event Loop</h4>
+            <p class="pattern-desc">Waits for you to press the hotkey. Like a phone that only rings when someone calls.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Monitoring Loop in Action</h2>
+        <p>Here's the actual code that watches for clipboard changes:</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">async fn</span> <span class="code-function">monitor_clipboard</span>() {</span>
+<span class="code-line">  <span class="code-keyword">let mut</span> history = <span class="code-type">ClipboardHistory</span>::<span class="code-function">load</span>()?;</span>
+<span class="code-line">  <span class="code-keyword">let mut</span> last_content: <span class="code-type">Option</span>&lt;<span class="code-type">String</span>&gt; = <span class="code-keyword">None</span>;</span>
+<span class="code-line">  </span>
+<span class="code-line">  <span class="code-keyword">loop</span> {</span>
+<span class="code-line">    <span class="code-keyword">if let</span> <span class="code-function">Ok</span>(content) = <span class="code-function">get_clipboard</span>() {</span>
+<span class="code-line">      <span class="code-keyword">let</span> is_new = last_content != <span class="code-type">Some</span>(&amp;content);</span>
+<span class="code-line">      <span class="code-keyword">if</span> is_new &amp;&amp; !content.<span class="code-function">is_empty</span>() {</span>
+<span class="code-line">        history.<span class="code-function">add</span>(content, MAX_HISTORY_SIZE);</span>
+<span class="code-line">        history.<span class="code-function">save</span>()?;</span>
+<span class="code-line">      }</span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="code-function">sleep</span>(<span class="code-number">500</span>).<span class="code-function">await</span>;</span>
+<span class="code-line">  }</span>
+<span class="code-line">}</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Start the clipboard watching function...</p>
+              <p class="tl">Load existing history from disk...</p>
+              <p class="tl">Keep track of what we saw last time (so we know if it's NEW)</p>
+              <p class="tl">Start an infinite loop — this never stops!</p>
+              <p class="tl">Try to read the clipboard. If it works...</p>
+              <p class="tl">Is this different from what we saw last time?</p>
+              <p class="tl">If it's new AND not empty, save it!</p>
+              <p class="tl">Save the updated history to disk...</p>
+              <p class="tl">Wait 500ms (half a second), then check again</p>
+              <p class="tl">This closing brace matches the 'loop' opening brace</p>
+              <p class="tl">Function ends here</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">From Copy to Storage</h2>
+        <p>Watch the full journey when you copy something:</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"User copies text in any app"},
+          {"highlight":"flow-actor-1","label":"Clipboard now has the new content","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-2","label":"Monitor detects clipboard changed"},
+          {"highlight":"flow-actor-2","label":"Monitor calls Clipboard module to read it","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-3","label":"Got the content! \"Hello World\""},
+          {"highlight":"flow-actor-3","label":"Send to History for storage","packet":true,"from":"actor-3","to":"actor-4"},
+          {"highlight":"flow-actor-4","label":"History adds entry with timestamp"},
+          {"highlight":"flow-actor-4","label":"Save to disk (history.json)","packet":true,"from":"actor-4","to":"actor-5"},
+          {"highlight":"flow-actor-5","label":"Data persisted to disk"}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon">📝</div>
+              <span>Any App</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon">👁️</div>
+              <span>Monitor</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon">📋</div>
+              <span>Clipboard</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon">📚</div>
+              <span>History</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-5">
+              <div class="flow-actor-icon">💾</div>
+              <span>Disk</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click "Next Step" to begin</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Why Polling? Why Not Events?</h2>
+        <p>You might wonder: why does the app "check" every 500ms instead of being notified immediately when something changes?</p>
+        <p>The answer is <span class="term" data-definition="APIs (Application Programming Interfaces) are how programs talk to each other. The clipboard API here doesn't send notifications — it just lets you read/write.">the clipboard API</span> doesn't support <span class="term" data-definition="Event-based programming is like having a doorbell — you get notified when something happens. Polling is like checking your mailbox every 5 minutes — you might miss something in between.">event-based programming</span>. There's no "tell me when clipboard changes" feature.</p>
+        <p>So the app has to check periodically, like:</p>
+        <div class="callout callout-info">
+          <div class="callout-icon">ℹ️</div>
+          <div class="callout-content">
+            <strong class="callout-title">Good to know</strong>
+            <p>500ms was chosen as a balance: fast enough to feel instant when you paste, but not so fast that it wastes battery or CPU.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Module 3 Quiz</h2>
+
+        <div class="quiz-container" id="quiz-module3">
+          <div class="quiz-question-block"
+               data-correct="option-c"
+               data-explanation-right="Exactly! The monitoring loop runs continuously in the background, while the event loop handles user interactions when the hotkey is pressed."
+               data-explanation-wrong="Not quite. Both loops run at the same time — one watches the clipboard, the other waits for your input.">
+            <h3 class="quiz-question">What happens when you press the hotkey while the monitor is checking the clipboard?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The monitoring loop stops so the hotkey can work</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The hotkey is ignored until the next check cycle</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Both happen independently at the same time</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The monitor finishes its current check before responding</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-a"
+               data-explanation-right="Right! The clipboard API doesn't notify apps of changes — you have to ask 'is it different now?' repeatedly."
+               data-explanation-wrong="Not quite. The 500ms interval is a choice the developer made, not a limitation of time itself.">
+            <h3 class="quiz-question">Why does the app check the clipboard every 500ms instead of getting notified immediately?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The operating system doesn't provide a notification mechanism for clipboard changes</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Checking less frequently would use too much memory</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>macOS requires all background apps to use 500ms intervals</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It's a security feature to prevent clipboard hijacking</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module3')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module3')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>

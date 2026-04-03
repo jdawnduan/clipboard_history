@@ -1,0 +1,200 @@
+<section class="module" id="module-4" style="background: var(--color-bg-warm)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">04</span>
+      <h1 class="module-title">The Clever Tricks</h1>
+      <p class="module-subtitle">Engineering decisions that make the app reliable</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Four Smart Decisions</h2>
+        <p>Building a clipboard manager sounds simple, but there are tricky edge cases. Here are the clever solutions:</p>
+        
+        <div class="pattern-cards">
+          <div class="pattern-card">
+            <div class="pattern-icon" style="background: var(--color-actor-1)">🚫</div>
+            <h4 class="pattern-title">Duplicate Prevention</h4>
+            <p class="pattern-desc">If you copy the same text twice, only the newest copy is kept — like a "most recent" filter.</p>
+          </div>
+          <div class="pattern-card">
+            <div class="pattern-icon" style="background: var(--color-actor-2)">📏</div>
+            <h4 class="pattern-title">Size Limits</h4>
+            <p class="pattern-desc">Entries over 128KB are skipped — prevents huge images or files from bloating storage.</p>
+          </div>
+          <div class="pattern-card">
+            <div class="pattern-icon" style="background: var(--color-actor-3)">🔒</div>
+            <h4 class="pattern-title">Single Instance</h4>
+            <p class="pattern-desc">Only one clipboard history daemon runs at a time — using a lock file on disk.</p>
+          </div>
+          <div class="pattern-card">
+            <div class="pattern-icon" style="background: var(--color-actor-4)">⏭️</div>
+            <h4 class="pattern-title">Paste Skip Flag</h4>
+            <p class="pattern-desc">When pasting from history, the monitor ignores that clipboard change — no infinite loops!</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Skip Flag — Avoiding Infinite Loops</h2>
+        <p>Here's one of the trickiest problems: when you select from history, the app writes to the clipboard. But the monitor is watching the clipboard! It would see the "paste" as a new copy and add it back to history...</p>
+        <p>That's where the <span class="term" data-definition="A flag is a signal (usually a true/false value) that tells code to behave differently. Think of it like a 'do not disturb' sign on a hotel door.">skip flag</span> comes in:</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-comment">// When starting paste:</span>
+<span class="code-line">skip_next_monitor.<span class="code-function">store</span>(<span class="code-keyword">true</span>, <span class="code-type">Ordering</span>::SeqCst);</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="code-comment">// Inside monitor loop:</span>
+<span class="code-line"><span class="code-keyword">if</span> skip_next.<span class="code-function">swap</span>(<span class="code-keyword">false</span>, <span class="code-type">Ordering</span>::SeqCst) {</span>
+<span class="code-line">  last_content = <span class="code-type">Some</span>(content);</span>
+<span class="code-line">  <span class="code-keyword">continue</span>;  <span class="code-comment">// Skip adding to history!</span>
+<span class="code-line">}</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">When user clicks to paste from history...</p>
+              <p class="tl">Set the skip flag to TRUE — "don't count the next clipboard change!"</p>
+              <p class="tl">Empty line for readability</p>
+              <p class="tl">Meanwhile, in the monitoring loop (every 500ms)...</p>
+              <p class="tl">Check the flag and RESET it to false at the same time...</p>
+              <p class="tl">If it was true, update what we last saw but...</p>
+              <p class="tl">Skip adding this to history! Go back to watching.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Single Instance — No Duplicate Daemons</h2>
+        <p>What if you accidentally start clipboard history twice? You'd have two daemons fighting over the clipboard. The solution: a <span class="term" data-definition="A lock file is a marker on disk that says 'I'm using this resource.' If another program sees the file exists, it knows someone else is already running.">lock file</span>.</p>
+
+        <div class="step-cards">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Start up</strong>
+              <p>Check if daemon.pid file exists in the app data folder</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Check if old daemon is running</strong>
+              <p>Read the PID from the file, ask the system "is process 12345 still running?"</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Kill old daemon</strong>
+              <p>If it's running, send it a "please stop" signal</p>
+            </div>
+          </div>
+          <div class="step-card">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>Write our PID</strong>
+              <p>Create the lock file with our process ID</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The History Entry Structure</h2>
+        <p>Each entry in your clipboard history is a simple data structure:</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">pub struct</span> <span class="code-type">ClipboardEntry</span> {</span>
+<span class="code-line">  <span class="code-keyword">pub</span> content: <span class="code-type">String</span>,       <span class="code-comment">// The actual text</span>
+<span class="code-line">  <span class="code-keyword">pub</span> timestamp: <span class="code-type">DateTime</span>&lt;<span class="code-type">Utc</span>&gt;, <span class="code-comment">// When it was copied</span>
+<span class="code-line">}</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Define a new data structure called ClipboardEntry...</p>
+              <p class="tl">The content field stores the text you copied...</p>
+              <p class="tl">The timestamp tells when you copied it (in Coordinated Universal Time)</p>
+              <p class="tl">End of the structure definition</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Key Insight</strong>
+            <p>Data structures like this are the vocabulary of code. Knowing what data exists helps you understand what the program can do — and what you could ask an AI to add.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Module 4 Quiz</h2>
+
+        <div class="quiz-container" id="quiz-module4">
+          <div class="quiz-question-block"
+               data-correct="option-b"
+               data-explanation-right="Exactly! The skip flag is set before writing to clipboard, so the monitor knows to ignore that specific change."
+               data-explanation-wrong="Not quite. The skip flag is a signal passed between threads — one thread sets it, another checks it.">
+            <h3 class="quiz-question">How does the app prevent a pasted entry from being re-added to history?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It deletes the clipboard content before pasting</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It sets a flag that tells the monitor to skip the next change</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It pauses the monitoring loop during paste</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It adds a special marker in the clipboard content itself</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-c"
+               data-explanation-right="Right! Each entry is just the text and when it was copied. Simple data structures make programs easier to understand and maintain."
+               data-explanation-wrong="Not quite. The entry is intentionally simple — just text and timestamp. The app doesn't store metadata like source app or paste count.">
+            <h3 class="quiz-question">What information does each clipboard history entry store?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The text, the source app, and how many times you pasted it</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Only the text, with no additional information</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The text and the timestamp of when it was copied</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A hash of the text and the exact byte size</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module4')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module4')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>

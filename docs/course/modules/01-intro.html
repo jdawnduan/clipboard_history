@@ -1,0 +1,193 @@
+<section class="module" id="module-1" style="background: var(--color-bg)">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">01</span>
+      <h1 class="module-title">What Happens When You Press the Hotkey</h1>
+      <p class="module-subtitle">Trace the journey from a keyboard shortcut to your clipboard history</p>
+    </header>
+
+    <div class="module-body">
+      <section class="screen animate-in">
+        <h2 class="screen-heading">You Already Know How to Use This</h2>
+        <p>Imagine you're writing an email. You copy a URL, paste it. Copy some text, paste it. Then you realize you needed something you copied five minutes ago...</p>
+        <p>That's where <span class="term" data-definition="A clipboard history manager runs in the background and keeps a record of everything you copy, so you can retrieve it later like a time machine for your clipboard.">clipboard history</span> comes in.</p>
+        <p>You press <code>Cmd+Option+V</code> and a little popup appears with your recent copies. You click "3" and — boom — the text from 20 copies ago is back in your clipboard, ready to paste.</p>
+        <p>But what's actually happening behind the scenes? Let's find out.</p>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Journey of a Hotkey Press</h2>
+        <p>Think of pressing a hotkey like dropping a letter in a mailbox. You don't know what happens inside — you just know your message is going somewhere.</p>
+        <p>Here's what actually happens when you press <code>Cmd+Option+V</code>:</p>
+        
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-step-num">1</div>
+            <p>You press the keys</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">2</div>
+            <p>macOS detects the combination</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">3</div>
+            <p>Clipboard History gets the signal</p>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-step-num">4</div>
+            <p>Popup appears!</p>
+          </div>
+        </div>
+        
+        <p>But wait — Clipboard History has to be "watching" for that hotkey even when it's not visible. How does it do that?</p>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The App That's Always Watching</h2>
+        <p>When you install and start Clipboard History, it runs as a <span class="term" data-definition="A daemon is a program that runs in the background, like a silent assistant that never pops up until you need it. It starts automatically and keeps running.">daemon</span> — a background program that starts when your computer starts and just... waits.</p>
+        <p>It's like having a receptionist who never takes breaks. Even when you're in the middle of writing, the daemon is sitting there, quietly listening for your hotkey.</p>
+        
+        <div class="callout callout-accent">
+          <div class="callout-icon">💡</div>
+          <div class="callout-content">
+            <strong class="callout-title">Key Insight</strong>
+            <p>Background daemons are how your computer does things "automatically" — they watch for events and respond when needed, without you having to open an app.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Code That Listens</h2>
+        <p>Let's look at the real code that registers the hotkey. This is from the main program:</p>
+
+        <div class="translation-block animate-in">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-line"><span class="code-keyword">let</span> hotkey = <span class="code-type">HotKey</span>::<span class="code-function">new</span>(</span>
+<span class="code-line">  <span class="code-property">Some</span>(Modifiers::META | Modifiers::ALT),</span>
+<span class="code-line">  Code::KeyV</span>
+<span class="code-line">);</span>
+<span class="code-line">manager.<span class="code-function">register</span>(hotkey)?;</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Create a new hotkey object that watches for Command + Option + V...</p>
+              <p class="tl">META means Command key, ALT means Option key...</p>
+              <p class="tl">KeyV is the V key itself...</p>
+              <p class="tl">Tell the system: "Let me know when this combo is pressed"</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Complete Flow</h2>
+        <p>Here's the full animation of what happens when you press the hotkey:</p>
+
+        <div class="flow-animation" data-steps='[
+          {"highlight":"flow-actor-1","label":"You press Cmd+Option+V"},
+          {"highlight":"flow-actor-2","label":"macOS detects the hotkey","packet":true,"from":"actor-1","to":"actor-2"},
+          {"highlight":"flow-actor-2","label":"Hotkey Manager receives the signal"},
+          {"highlight":"flow-actor-3","label":"History is loaded from disk","packet":true,"from":"actor-2","to":"actor-3"},
+          {"highlight":"flow-actor-3","label":"Last 10 entries are retrieved"},
+          {"highlight":"flow-actor-4","label":"Popup window appears!","packet":true,"from":"actor-3","to":"actor-4"}
+        ]'>
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow-actor-1">
+              <div class="flow-actor-icon">⌨️</div>
+              <span>Keyboard</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-2">
+              <div class="flow-actor-icon">👂</div>
+              <span>Hotkey Manager</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-3">
+              <div class="flow-actor-icon">💾</div>
+              <span>History Store</span>
+            </div>
+            <div class="flow-actor" id="flow-actor-4">
+              <div class="flow-actor-icon">🖥️</div>
+              <span>Popup UI</span>
+            </div>
+          </div>
+
+          <div class="flow-packet" id="flow-packet"></div>
+
+          <div class="flow-step-label" id="flow-label">Click "Next Step" to begin</div>
+
+          <div class="flow-controls">
+            <button class="btn flow-next-btn">Next Step</button>
+            <button class="btn flow-reset-btn">Restart</button>
+            <span class="flow-progress"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Module 1 Quiz</h2>
+        <p>Time to check your understanding!</p>
+
+        <div class="quiz-container" id="quiz-module1">
+          <div class="quiz-question-block"
+               data-correct="option-c"
+               data-explanation-right="Exactly! A daemon is a background process — always running, waiting for events. That's why you don't see an app icon for Clipboard History."
+               data-explanation-wrong="Not quite. While it does run in the background, the key characteristic is that it starts automatically and waits for events. Think of it like a always-on assistant.">
+            <h3 class="quiz-question">What is a daemon?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A visible app window that you interact with</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A cloud service that syncs your data across devices</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A background program that runs automatically and waits for events</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A type of keyboard shortcut</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <div class="quiz-question-block"
+               data-correct="option-b"
+               data-explanation-right="Right! When you press the hotkey, the system notifies Clipboard History, which then loads your history and shows the popup."
+               data-explanation-wrong="Close, but not quite. The hotkey triggers the popup, but the history entries are loaded from storage first.">
+            <h3 class="quiz-question">When does Clipboard History load your clipboard entries?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Only when your computer starts up</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>When you press the hotkey to show the popup</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Every time you copy something</span>
+              </button>
+              <button class="quiz-option" data-value="option-d" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It keeps them loaded in memory all the time</span>
+              </button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-module1')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module1')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
