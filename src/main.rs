@@ -58,10 +58,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Commands::Daemon => {
+            platform::acquire_single_instance()?;
             println!("Starting clipboard history daemon...");
             println!("Max entries: {}, Max entry size: {} KB", MAX_HISTORY_SIZE, MAX_ENTRY_BYTES / 1024);
             println!("Press Cmd+Option+V to show clipboard history popup");
-            run_daemon_with_hotkey()?;
+            let result = run_daemon_with_hotkey();
+            let _ = platform::release_single_instance();
+            result?;
         }
         Commands::List { count } => {
             let history = ClipboardHistory::load()?;

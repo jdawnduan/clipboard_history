@@ -1,7 +1,7 @@
 //! Linux-specific functionality
 //!
 //! Supports both X11 and Wayland via arboard
-//! 
+//!
 //! Future enhancements:
 //! - D-Bus integration for system tray
 //! - Systemd user service for auto-start
