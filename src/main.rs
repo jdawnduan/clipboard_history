@@ -395,8 +395,8 @@ async fn monitor_clipboard(skip_next: Arc<AtomicBool>) -> Result<(), Box<dyn std
 
 fn truncate_preview(s: &str, max_len: usize) -> String {
     let s = s.replace('\n', "⏎").replace('\r', "");
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len])
+    if s.chars().count() > max_len {
+        format!("{}...", s.chars().take(max_len).collect::<String>())
     } else {
         s
     }
