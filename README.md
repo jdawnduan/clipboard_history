@@ -1,51 +1,61 @@
-## Installation
+# Documentation
 
-### Homebrew (macOS)
+## Interactive Course: How Clipboard History Works
 
-You can install `clipboard-history` via Homebrew by creating a local tap or using the provided formula.
+A beautiful, interactive course that teaches how the clipboard-history codebase works — no coding knowledge required.
 
-1.  **Install via the personal tap:**
-    ```bash
-    brew tap jdawnduan/tap
-    brew install jdawnduan/tap/clipboard-history
-    ```
+### View the Course
 
-2.  **Start the daemon as a service:**
-    ```bash
-    brew services start clipboard-history
-    ```
+Open `course/index.html` in your browser:
+```bash
+# On macOS
+open docs/course/index.html
 
-### Managing the Service
+# Or just double-click the file in Finder
+```
 
-Once installed as a service, you can manage it using `brew services`:
+### What You'll Learn
 
-- **Check status:**
-  ```bash
-  brew services info clipboard-history
-  ```
+The course covers:
+- **Module 1**: What happens when you press the hotkey
+- **Module 2**: Meet the components (Clipboard, History, Monitor, Platform)
+- **Module 3**: The data pipeline and concurrency
+- **Module 4**: The clever engineering tricks
+- **Module 5**: Debugging when things go wrong
 
-- **Stop the service:**
-  ```bash
-  brew services stop clipboard-history
-  ```
+### For Developers
 
-- **Restart the service:**
-  ```bash
-  brew services restart clipboard-history
-  ```
+If you want to regenerate the course HTML after making changes:
 
-- **View logs:**
-  ```bash
-  tail -f $(brew --prefix)/var/log/clipboard-history.log
-  ```
+```bash
+cd docs/course
+bash build.sh
+```
 
-### Permissions (macOS)
+This assembles `index.html` from the module files in `modules/`.
 
-The first time you start the daemon (either via `brew services` or manually), macOS will ask for **Accessibility** permissions. This is required for:
-1.  Global hotkey support (`Cmd+Option+v`).
-2.  Select from 1 to 10 (0 means 10) past entries.
-2.  `Cmd+v` to do paste into your active application.
+### Course Structure
 
-If it doesn't work, ensure `clipboard-history` (or your terminal/Homebrew) is enabled in **System Settings > Privacy & Security > Accessibility**.
+```
+course/
+├── index.html      # Assembled course (open this in browser)
+├── build.sh        # Build script
+├── styles.css      # Design system
+├── main.js         # Interactive elements engine
+├── _base.html      # HTML shell
+├── modules/        # Individual module HTML files
+│   ├── 01-intro.html
+│   ├── 02-actors.html
+│   ├── 03-pipeline.html
+│   ├── 04-tricks.html
+│   └── 05-debug.html
+```
 
-Once the service is started and permissions are granted, you can use the `clipboard-history` CLI from anywhere.
+### Tech Stack
+
+The course is built with:
+- Pure HTML/CSS/JavaScript (no dependencies)
+- Google Fonts (Bricolage Grotesque, DM Sans, JetBrains Mono)
+- Custom interactive elements (chat animations, data flow diagrams, quizzes)
+
+Built with [codebase-to-course](https://github.com/zarazhangrui/codebase-to-course) written by [zarazhangrui](https://github.com/zarazhangrui).
