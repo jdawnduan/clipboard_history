@@ -49,3 +49,11 @@ The first time you start the daemon (either via `brew services` or manually), ma
 If it doesn't work, ensure `clipboard-history` (or your terminal/Homebrew) is enabled in **System Settings > Privacy & Security > Accessibility**.
 
 Once the service is started and permissions are granted, you can use the `clipboard-history` CLI from anywhere.
+
+---
+
+## Learn How It Works
+
+Interested in understanding the codebase? There's an interactive course that teaches how clipboard-history works — no coding knowledge required.
+
+Switch to the `docs` branch or check out the [docs/README.md](docs/README.md) for instructions on viewing the course.
