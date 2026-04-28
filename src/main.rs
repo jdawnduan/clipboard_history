@@ -208,8 +208,8 @@ impl DaemonApp {
                     platform::deactivate_app();
 
                     // Small delay to ensure focus has returned to the previous window
-                    // Reduced delay to 12ms
-                    std::thread::sleep(Duration::from_millis(12));
+                    // Reduced delay to 6ms
+                    std::thread::sleep(Duration::from_millis(6));
                     
                     println!("Simulating Cmd+V using enigo Meta+V...");
                     // Release all modifiers first in case they are stuck
@@ -232,7 +232,7 @@ impl DaemonApp {
                 // On Linux/Windows, Ctrl+V
                 #[cfg(not(target_os = "macos"))]
                 {
-                    std::thread::sleep(Duration::from_millis(37));
+                    std::thread::sleep(Duration::from_millis(20));
                     let _ = self.enigo.key(Key::Control, Direction::Press);
                     let _ = self.enigo.key(Key::Unicode('v'), Direction::Click);
                     let _ = self.enigo.key(Key::Control, Direction::Release);
