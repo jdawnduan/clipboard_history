@@ -9,7 +9,7 @@ use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager,
 };
 use history::ClipboardHistory;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use enigo::{Enigo, Settings, Key, Direction};
@@ -145,6 +145,28 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
         });
     });
 
+    // Event-driven hotkey listener — blocking recv() instead of polling every 100ms
+    let hotkey_triggered = Arc::new(AtomicBool::new(false));
+    let hotkey_triggered_clone = hotkey_triggered.clone();
+    let ctx_holder: Arc<Mutex<Option<egui::Context>>> = Arc::new(Mutex::new(None));
+    let ctx_holder_clone = ctx_holder.clone();
+
+    std::thread::spawn(move || {
+        loop {
+            if let Ok(event) = GlobalHotKeyEvent::receiver().recv() {
+                if event.id == hotkey_id {
+                    hotkey_triggered_clone.store(true, Ordering::SeqCst);
+                    // Wake the eframe event loop immediately
+                    if let Ok(ctx_opt) = ctx_holder_clone.lock() {
+                        if let Some(ctx) = ctx_opt.as_ref() {
+                            ctx.request_repaint();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     // Use eframe to create a hidden window that provides the event loop
     // This is required on macOS for global hotkeys to work
     let options = eframe::NativeOptions {
@@ -163,7 +185,7 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
         "Clipboard History Daemon",
         options,
         Box::new(move |_cc| {
-            Ok(Box::new(DaemonApp::new(hotkey_id, skip_next_monitor, history)))
+            Ok(Box::new(DaemonApp::new(skip_next_monitor, history, hotkey_triggered, ctx_holder)))
         }),
     ).map_err(|e| format!("Failed to run daemon: {}", e))?;
 
@@ -171,23 +193,25 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 struct DaemonApp {
-    hotkey_id: u32,
     popup_open: bool,
     entries: Vec<String>,
     enigo: Enigo,
     skip_next_monitor: Arc<AtomicBool>,
     history: history::SharedClipboardHistory,
+    hotkey_triggered: Arc<AtomicBool>,
+    ctx_holder: Arc<Mutex<Option<egui::Context>>>,
 }
 
 impl DaemonApp {
-    fn new(hotkey_id: u32, skip_next_monitor: Arc<AtomicBool>, history: history::SharedClipboardHistory) -> Self {
+    fn new(skip_next_monitor: Arc<AtomicBool>, history: history::SharedClipboardHistory, hotkey_triggered: Arc<AtomicBool>, ctx_holder: Arc<Mutex<Option<egui::Context>>>) -> Self {
         Self {
-            hotkey_id,
             popup_open: false,
             entries: Vec::new(),
             enigo: Enigo::new(&Settings::default()).unwrap(),
             skip_next_monitor,
             history,
+            hotkey_triggered,
+            ctx_holder,
         }
     }
 
@@ -270,27 +294,33 @@ impl eframe::App for DaemonApp {
             });
         }
 
-        // Check for hotkey events
-        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
-            if event.id == self.hotkey_id && !self.popup_open {
-                println!("Hotkey pressed! Showing clipboard history...");
+        // Store egui context so the hotkey listener thread can wake us immediately
+        {
+            let mut ctx_opt = self.ctx_holder.lock().unwrap();
+            if ctx_opt.is_none() {
+                *ctx_opt = Some(ctx.clone());
+            }
+        }
 
-                // Load history and show popup (in-memory, no disk I/O)
-                if let Ok(history) = self.history.lock() {
-                    self.entries = history
-                        .entries()
-                        .iter()
-                        .take(10)
-                        .map(|e| e.content.clone())
-                        .collect();
+        // Check for hotkey events (set by dedicated listener thread)
+        if self.hotkey_triggered.swap(false, Ordering::SeqCst) && !self.popup_open {
+            println!("Hotkey pressed! Showing clipboard history...");
 
-                    if self.entries.is_empty() {
-                        println!("No clipboard history to show.");
-                    } else {
-                        self.popup_open = true;
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-                    }
+            // Load history and show popup (in-memory, no disk I/O)
+            if let Ok(history) = self.history.lock() {
+                self.entries = history
+                    .entries()
+                    .iter()
+                    .take(10)
+                    .map(|e| e.content.clone())
+                    .collect();
+
+                if self.entries.is_empty() {
+                    println!("No clipboard history to show.");
+                } else {
+                    self.popup_open = true;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
             }
         }
@@ -357,8 +387,10 @@ impl eframe::App for DaemonApp {
             }
         }
 
-        // Request continuous repainting to check for hotkey events
-        ctx.request_repaint_after(Duration::from_millis(100));
+        // Only request repaints while popup is open (hotkey thread wakes us otherwise)
+        if self.popup_open {
+            ctx.request_repaint_after(Duration::from_millis(16));
+        }
     }
 }
 
