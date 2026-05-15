@@ -34,3 +34,6 @@ Desktop.ini
 
 # Pi
 .pi/*
+/.pi
+/Release_guide.md
+/.pi/pi-guard.json
