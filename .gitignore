@@ -31,3 +31,6 @@ Desktop.ini
 
 # Rust
 **/*.rs.bk
+
+# Pi
+.pi/*
