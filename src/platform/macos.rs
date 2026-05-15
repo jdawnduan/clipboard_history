@@ -128,6 +128,86 @@ pub fn deactivate_app() {
     }
 }
 
+/// Elevate the single application window above full-screen content and center it
+/// on the cursor's display. Called once each time the popup is shown.
+pub fn setup_popup_window() {
+    #[cfg(target_os = "macos")]
+    unsafe {
+        // Get the application's only window (the hidden eframe popup) via [NSApp windows]
+        let mtm = match MainThreadMarker::new() {
+            Some(mtm) => mtm,
+            None => return,
+        };
+        let app = NSApplication::sharedApplication(mtm);
+        let windows: *mut objc2::runtime::AnyObject = msg_send![&app, windows];
+        let count: u64 = msg_send![windows, count];
+        if count == 0 {
+            return;
+        }
+        let ns_window: *mut objc2::runtime::AnyObject = msg_send![windows, firstObject];
+        if ns_window.is_null() {
+            return;
+        }
+        let ns_window = &*ns_window;
+
+        // Use the shielding window level so we appear above full-screen apps
+        let level = core_graphics::display::CGShieldingWindowLevel();
+        let _: () = msg_send![ns_window, setLevel: level as i64];
+
+        // Center on the display containing the cursor
+        center_on_cursor_screen(ns_window);
+    }
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn center_on_cursor_screen(ns_window: &objc2::runtime::AnyObject) {
+    use objc2_foundation::{CGPoint, CGRect, CGFloat};
+
+    // Get mouse location in screen coordinates via [NSEvent mouseLocation]
+    let event_class = match objc2::runtime::AnyClass::get("NSEvent") {
+        Some(cls) => cls,
+        None => return,
+    };
+    let mouse_location: CGPoint = msg_send![event_class, mouseLocation];
+
+    // Get all screens via [NSScreen screens]
+    let screens_class = match objc2::runtime::AnyClass::get("NSScreen") {
+        Some(cls) => cls,
+        None => return,
+    };
+    let screens: *mut objc2::runtime::AnyObject = msg_send![screens_class, screens];
+    let count: u64 = msg_send![screens, count];
+
+    // Default to the window's current screen
+    let mut target_screen: *mut objc2::runtime::AnyObject = msg_send![ns_window, screen];
+
+    // Find which screen contains the cursor
+    for i in 0..count {
+        let screen: *mut objc2::runtime::AnyObject = msg_send![screens, objectAtIndex: i];
+        let frame: CGRect = msg_send![screen, frame];
+
+        if mouse_location.x >= frame.origin.x
+            && mouse_location.x < frame.origin.x + frame.size.width
+            && mouse_location.y >= frame.origin.y
+            && mouse_location.y < frame.origin.y + frame.size.height
+        {
+            target_screen = screen;
+            break;
+        }
+    }
+
+    // Center the popup window on that screen
+    let screen_frame: CGRect = msg_send![target_screen, frame];
+    let window_frame: CGRect = msg_send![ns_window, frame];
+
+    let x: CGFloat = screen_frame.origin.x
+        + (screen_frame.size.width - window_frame.size.width) / 2.0;
+    let y: CGFloat = screen_frame.origin.y
+        + (screen_frame.size.height - window_frame.size.height) / 2.0;
+
+    let _: () = msg_send![ns_window, setFrameOrigin: CGPoint::new(x, y)];
+}
+
 /// Check if the app has accessibility permissions
 pub fn check_accessibility_permissions() -> bool {
     #[cfg(target_os = "macos")]

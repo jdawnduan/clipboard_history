@@ -353,6 +353,11 @@ impl eframe::App for DaemonApp {
                     println!("No clipboard history to show.");
                 } else {
                     self.popup_open = true;
+
+                    // macOS-specific: elevate window above full-screen, center on cursor
+                    #[cfg(target_os = "macos")]
+                    crate::platform::macos::setup_popup_window();
+
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
