@@ -135,11 +135,29 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
     let history = ClipboardHistory::new_shared();
     let monitor_history = history.clone();
 
+    // Channel for async disk writes — monitor sends save signal, saver thread writes
+    let (save_tx, save_rx) = std::sync::mpsc::channel::<()>();
+    let saver_history = history.clone();
+    std::thread::spawn(move || {
+        // Background saver: receives save signals, debounces, writes to disk
+        while save_rx.recv().is_ok() {
+            // Drain any queued signals so rapid changes coalesce into one save
+            while save_rx.try_recv().is_ok() {}
+            // Brief debounce to avoid thrashing on rapid clipboard changes
+            std::thread::sleep(Duration::from_millis(50));
+            if let Ok(history) = saver_history.lock() {
+                if let Err(e) = history.save() {
+                    eprintln!("Failed to save history: {}", e);
+                }
+            }
+        }
+    });
+
     // Spawn clipboard monitoring thread
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            if let Err(e) = monitor_clipboard(skip_next_monitor_clone, monitor_history).await {
+            if let Err(e) = monitor_clipboard(skip_next_monitor_clone, monitor_history, save_tx).await {
                 eprintln!("Clipboard monitor error: {}", e);
             }
         });
@@ -394,7 +412,7 @@ impl eframe::App for DaemonApp {
     }
 }
 
-async fn monitor_clipboard(skip_next: Arc<AtomicBool>, shared_history: history::SharedClipboardHistory) -> Result<(), Box<dyn std::error::Error>> {
+async fn monitor_clipboard(skip_next: Arc<AtomicBool>, shared_history: history::SharedClipboardHistory, save_tx: std::sync::mpsc::Sender<()>) -> Result<(), Box<dyn std::error::Error>> {
     let mut last_content: Option<String> = None;
 
     loop {
@@ -414,10 +432,12 @@ async fn monitor_clipboard(skip_next: Arc<AtomicBool>, shared_history: history::
                             truncate_preview(&content, 40)
                         );
 
+                        // Update in-memory history (fast, no I/O)
                         if let Ok(mut history) = shared_history.lock() {
                             history.add(content.clone(), MAX_HISTORY_SIZE);
-                            let _ = history.save();
                         }
+                        // Signal background saver to write to disk (non-blocking)
+                        let _ = save_tx.send(());
                         last_content = Some(content);
                     } else if !is_valid_size {
                         println!(
