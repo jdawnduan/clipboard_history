@@ -301,6 +301,22 @@ impl DaemonApp {
 
 impl eframe::App for DaemonApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Set up CJK font fallbacks on first frame (system fonts for Chinese/Japanese/Korean)
+        {
+            static FONTS_SET: std::sync::Once = std::sync::Once::new();
+            FONTS_SET.call_once(|| {
+                let mut fonts = egui::FontDefinitions::default();
+                #[cfg(target_os = "macos")]
+                {
+                    if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+                        family.insert(0, "PingFang SC".to_owned());
+                        family.insert(1, "Hiragino Sans GB".to_owned());
+                    }
+                }
+                ctx.set_fonts(fonts);
+            });
+        }
+
         // Ensure window starts hidden on first frame
         #[cfg(target_os = "macos")]
         {
