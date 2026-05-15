@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,7 +15,13 @@ pub struct ClipboardHistory {
     entries: Vec<ClipboardEntry>,
 }
 
+pub type SharedClipboardHistory = Arc<Mutex<ClipboardHistory>>;
+
 impl ClipboardHistory {
+    pub fn new_shared() -> SharedClipboardHistory {
+        Arc::new(Mutex::new(ClipboardHistory::load().unwrap_or_default()))
+    }
+
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
         let path = Self::storage_path()?;
 

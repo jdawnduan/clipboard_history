@@ -131,11 +131,15 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Registered hotkey: Cmd+Option+V (id: {})", hotkey_id);
 
+    // Create shared clipboard history (in-memory, no disk read on hotkey)
+    let history = ClipboardHistory::new_shared();
+    let monitor_history = history.clone();
+
     // Spawn clipboard monitoring thread
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            if let Err(e) = monitor_clipboard(skip_next_monitor_clone).await {
+            if let Err(e) = monitor_clipboard(skip_next_monitor_clone, monitor_history).await {
                 eprintln!("Clipboard monitor error: {}", e);
             }
         });
@@ -159,7 +163,7 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
         "Clipboard History Daemon",
         options,
         Box::new(move |_cc| {
-            Ok(Box::new(DaemonApp::new(hotkey_id, skip_next_monitor)))
+            Ok(Box::new(DaemonApp::new(hotkey_id, skip_next_monitor, history)))
         }),
     ).map_err(|e| format!("Failed to run daemon: {}", e))?;
 
@@ -172,16 +176,18 @@ struct DaemonApp {
     entries: Vec<String>,
     enigo: Enigo,
     skip_next_monitor: Arc<AtomicBool>,
+    history: history::SharedClipboardHistory,
 }
 
 impl DaemonApp {
-    fn new(hotkey_id: u32, skip_next_monitor: Arc<AtomicBool>) -> Self {
+    fn new(hotkey_id: u32, skip_next_monitor: Arc<AtomicBool>, history: history::SharedClipboardHistory) -> Self {
         Self {
             hotkey_id,
             popup_open: false,
             entries: Vec::new(),
             enigo: Enigo::new(&Settings::default()).unwrap(),
             skip_next_monitor,
+            history,
         }
     }
 
@@ -269,8 +275,8 @@ impl eframe::App for DaemonApp {
             if event.id == self.hotkey_id && !self.popup_open {
                 println!("Hotkey pressed! Showing clipboard history...");
 
-                // Load history and show popup
-                if let Ok(history) = ClipboardHistory::load() {
+                // Load history and show popup (in-memory, no disk I/O)
+                if let Ok(history) = self.history.lock() {
                     self.entries = history
                         .entries()
                         .iter()
@@ -356,8 +362,7 @@ impl eframe::App for DaemonApp {
     }
 }
 
-async fn monitor_clipboard(skip_next: Arc<AtomicBool>) -> Result<(), Box<dyn std::error::Error>> {
-    let mut history = ClipboardHistory::load()?;
+async fn monitor_clipboard(skip_next: Arc<AtomicBool>, shared_history: history::SharedClipboardHistory) -> Result<(), Box<dyn std::error::Error>> {
     let mut last_content: Option<String> = None;
 
     loop {
@@ -377,8 +382,10 @@ async fn monitor_clipboard(skip_next: Arc<AtomicBool>) -> Result<(), Box<dyn std
                             truncate_preview(&content, 40)
                         );
 
-                        history.add(content.clone(), MAX_HISTORY_SIZE);
-                        history.save()?;
+                        if let Ok(mut history) = shared_history.lock() {
+                            history.add(content.clone(), MAX_HISTORY_SIZE);
+                            let _ = history.save();
+                        }
                         last_content = Some(content);
                     } else if !is_valid_size {
                         println!(
