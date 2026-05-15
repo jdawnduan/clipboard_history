@@ -1,26 +1,26 @@
- ┌───┬─────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
- │ # │ Commit  │ What Changed                                                                                                                      │
- ├───┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ 1 │ 1bac8f9 │ In-memory history — Arc<Mutex<ClipboardHistory>> shared between monitor & GUI, no disk read on hotkey                             │
- ├───┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ 2 │ 75345a9 │ Event-driven hotkey — dedicated blocking thread, sub-ms wake vs 100ms polling                                                     │
- ├───┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ 3 │ 0f2981f │ Async disk writes — background saver thread with 50ms debounce, monitor never blocks on I/O                                       │
- ├───┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ 4 │ af9f08e │ CJK fonts — PingFang SC + Hiragino Sans GB fallbacks for egui, Chinese/Japanese renders correctly                                 │
- ├───┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ 5 │ bbf2bb8 │ Floating panel — CGShieldingWindowLevel() over full-screen, center on cursor screen via NSEvent.mouseLocation                     │
- ├───┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ 6 │ 9ca82e6 │ .app bundle — macos/Info.plist + scripts/build_app_bundle.sh, CFBundleIdentifier: com.jdawnduan.clipboard-history, bump to v0.2.0 │
- └───┴─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+ ┌───┬─────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ # │ Commit  │ What Changed                                                                                                                         │
+ ├───┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 1 │ 1bac8f9 │ In-memory history — `Arc<Mutex<ClipboardHistory>>` shared between monitor & GUI, no disk read on hotkey                                │
+ ├───┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 2 │ 75345a9 │ Event-driven hotkey — dedicated blocking thread, sub-ms wake vs 100ms polling                                                        │
+ ├───┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 3 │ 0f2981f │ Async disk writes — background saver thread with 50ms debounce, monitor never blocks on I/O                                          │
+ ├───┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 4 │ af9f08e │ CJK fonts — PingFang SC + Hiragino Sans GB fallbacks for egui, Chinese/Japanese renders correctly                                    │
+ ├───┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 5 │ bbf2bb8 │ Floating panel — CGShieldingWindowLevel() over full-screen, center on cursor screen via NSEvent.mouseLocation                        │
+ ├───┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 6 │ 9ca82e6 │ .app bundle — macos/Info.plist + `scripts/build_app_bundle.sh`, CFBundleIdentifier: com.jdawnduan.clipboard-history, bump to v0.2.0  │
+ └───┴─────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
  Remaining (per the plan):
  - Speed tuning after measurement — if C→D (key press → paste) still feels slow, implement Option C (pre-set clipboard when window opens) by instrumenting with timestamps
- - Homebrew formula update — the downstream jdawnduan/tap/clipboard-history formula needs to call build_app_bundle.sh during brew install — I can help with that when you're ready
+ - Homebrew formula update — the downstream jdawnduan/tap/clipboard-history formula needs to call `build_app_bundle.sh` during brew install — I can help with that when you're ready
 
  Session Info
 
- File: /Users/duan_j/.pi/agent/sessions/--Users-duan_j-repos-personal_interest-clipboard_history--/2026-05-15T15-45-54-669Z_019e2c50-d1ec-7056-8ff4-0b5cf63c3e9c.jsonl
+ `File: /Users/duan_j/.pi/agent/sessions/--Users-duan_j-repos-personal_interest-clipboard_history--/2026-05-15T15-45-54-669Z_019e2c50-d1ec-7056-8ff4-0b5cf63c3e9c.jsonl`
  ID: 019e2c50-d1ec-7056-8ff4-0b5cf63c3e9c
 
  Messages
@@ -35,3 +35,23 @@
  Output: 67,067
  Cache Read: 8,229,888
  Total: 8,371,376
+
+## Deliverables:
+
+ ┌─────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ File                            │ Purpose                                                                                                                │
+ ├─────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ macos/Info.plist                │ Bundle metadata with CFBundleIdentifier: com.jdawnduan.clipboard-history                                               │
+ ├─────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ `scripts/build_app_bundle.sh`   │ Wraps release binary in .app bundle                                                                                    │
+ ├─────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ docs/homebrew-formula-update.md │ Complete recipe for the formula — cargo install → create .app → symlink binary → optional tccutil reset                │
+ ├─────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ README.md                       │ Updated with build-from-source steps, permission docs explaining bundle ID persistence, and link to the formula recipe │
+ └─────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+ Key points for the formula maintainer:
+ - The formula must create the .app bundle inline (Formula/clipboard-history.rb) using prefix / "Clipboard History.app" / Contents / MacOS
+ - Write the Info.plist with #{version} as CFBundleVersion
+ - Symlink `macos_dir/"clipboard-history"` into bin/ so brew services finds the binary
+ - Recommend caveats-based tccutil reset rather than `post_install` to avoid re-prompting on every upgrade
