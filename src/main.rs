@@ -312,8 +312,10 @@ impl eframe::App for DaemonApp {
                 #[cfg(target_os = "macos")]
                 {
                     // Try loading CJK fonts from macOS system paths
+                    // On macOS 24+, PingFang.ttc moved to a PrivateFramework path (SIP-protected);
+                    // epaint only scans standard directories so we must use fonts accessible there.
                     let cjk_candidates = [
-                        "/System/Library/Fonts/PingFang.ttc",
+                        "/System/Library/Fonts/STHeiti Medium.ttc",
                         "/System/Library/Fonts/Supplemental/Songti.ttc",
                     ];
 
