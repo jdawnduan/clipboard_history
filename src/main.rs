@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use enigo::{Enigo, Settings, Key, Direction};
 
-const MAX_HISTORY_SIZE: usize = 20;
+const MAX_HISTORY_SIZE: usize = 10;
 const MAX_ENTRY_BYTES: usize = 128 * 1024; // 128 KB
 const POLL_INTERVAL_MS: u64 = 500;
 
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             platform::acquire_single_instance()?;
             println!("Starting clipboard history daemon...");
             println!("Max entries: {}, Max entry size: {} KB", MAX_HISTORY_SIZE, MAX_ENTRY_BYTES / 1024);
-            println!("Press Cmd+Option+V to show clipboard history popup");
+            println!("Press Cmd+Option+v to show clipboard history popup");
             let result = run_daemon_with_hotkey();
             let _ = platform::release_single_instance();
             result?;
@@ -129,7 +129,7 @@ fn run_daemon_with_hotkey() -> Result<(), Box<dyn std::error::Error>> {
     let hotkey_id = hotkey.id();
     manager.register(hotkey)?;
 
-    println!("Registered hotkey: Cmd+Option+V (id: {})", hotkey_id);
+    println!("Registered hotkey: Cmd+Option+v (id: {})", hotkey_id);
 
     // Create shared clipboard history (in-memory, no disk read on hotkey)
     let history = ClipboardHistory::new_shared();
@@ -301,31 +301,48 @@ impl DaemonApp {
 
 impl eframe::App for DaemonApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Set up CJK font fallbacks on first frame (system fonts for Chinese/Japanese/Korean)
+        // Set up CJK font fallbacks on first frame
+        // Loads PingFang.ttc from macOS system fonts so CJK characters render correctly.
+        // Must insert font data before referencing the name in families, or egui panics.
         {
             static FONTS_SET: std::sync::Once = std::sync::Once::new();
             FONTS_SET.call_once(|| {
                 let mut fonts = egui::FontDefinitions::default();
+
                 #[cfg(target_os = "macos")]
                 {
-                    if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
-                        family.insert(0, "PingFang SC".to_owned());
-                        family.insert(1, "Hiragino Sans GB".to_owned());
+                    // Try loading CJK fonts from macOS system paths
+                    let cjk_candidates = [
+                        "/System/Library/Fonts/PingFang.ttc",
+                        "/System/Library/Fonts/Supplemental/Songti.ttc",
+                    ];
+
+                    for path in &cjk_candidates {
+                        if let Ok(data) = std::fs::read(path) {
+                            let label = path.rsplit('/').next().unwrap_or("CJK");
+                            fonts.font_data
+                                .insert(label.to_owned(), egui::FontData::from_owned(data));
+                            if let Some(family) =
+                                fonts.families.get_mut(&egui::FontFamily::Proportional)
+                            {
+                                family.insert(0, label.to_owned());
+                            }
+                            break;
+                        }
                     }
                 }
+
                 ctx.set_fonts(fonts);
             });
         }
 
-        // Ensure window starts hidden on first frame
-        #[cfg(target_os = "macos")]
-        {
-            static ONCE: std::sync::Once = std::sync::Once::new();
-            ONCE.call_once(|| {
-                if !self.popup_open {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
-                }
-            });
+        // Continuously hide the native window while the popup is closed.
+        // eframe's with_visible(false) doesn't always suppress the window on macOS,
+        // and the first frame might fire before the window exists in [NSApp windows].
+        // By hiding every frame until the popup opens, we catch it whenever it appears.
+        if !self.popup_open {
+            #[cfg(target_os = "macos")]
+            platform::hide_main_window();
         }
 
         // Store egui context so the hotkey listener thread can wake us immediately
@@ -354,9 +371,13 @@ impl eframe::App for DaemonApp {
                 } else {
                     self.popup_open = true;
 
-                    // macOS-specific: elevate window above full-screen, center on cursor
+                    // macOS-specific: unhide the app (in case it was hidden),
+                    // then elevate window above full-screen, center on cursor
                     #[cfg(target_os = "macos")]
-                    crate::platform::macos::setup_popup_window();
+                    {
+                        platform::unhide_app();
+                        crate::platform::macos::setup_popup_window();
+                    }
 
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
@@ -397,7 +418,11 @@ impl eframe::App for DaemonApp {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
             } else {
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    ui.heading("📋 Clipboard History");
+                    ui.label(
+                        egui::RichText::new("📋 Clipboard History")
+                            .size(22.0)
+                            .text_style(egui::TextStyle::Body),
+                    );
                     ui.add_space(5.0);
                     ui.label("Press 1-9 (0 for 10) to select and paste, Esc to close");
                     ui.add_space(10.0);

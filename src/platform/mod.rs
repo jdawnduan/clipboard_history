@@ -23,6 +23,22 @@ pub fn deactivate_app() {
 pub fn deactivate_app() {}
 
 #[cfg(target_os = "macos")]
+pub fn unhide_app() {
+    macos::unhide_app();
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn unhide_app() {}
+
+#[cfg(target_os = "macos")]
+pub fn hide_main_window() {
+    macos::hide_main_window();
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn hide_main_window() {}
+
+#[cfg(target_os = "macos")]
 pub fn acquire_single_instance() -> Result<bool, Box<dyn std::error::Error>> {
     macos::acquire_single_instance()
 }

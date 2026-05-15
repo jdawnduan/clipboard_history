@@ -94,10 +94,6 @@ pub fn init() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(mtm) = MainThreadMarker::new() {
             let app = NSApplication::sharedApplication(mtm);
             app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-            unsafe {
-                let nil: *mut objc2::runtime::AnyObject = std::ptr::null_mut();
-                let _: () = msg_send![&app, hide: nil];
-            }
         }
 
         if !check_accessibility_permissions() {
@@ -110,19 +106,57 @@ pub fn init() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Deactivate the application so focus returns to the previous one
+/// Deactivate the application so focus returns to the previous one.
+/// Calls hide: to let macOS switch focus to the previous app, then deactivates.
+/// Paired with unhide_app() before showing the popup again.
 pub fn deactivate_app() {
     #[cfg(target_os = "macos")]
     {
         if let Some(mtm) = MainThreadMarker::new() {
             let app = NSApplication::sharedApplication(mtm);
-            // hide: method on NSApplication
             unsafe {
                 let _: () = msg_send![&app, hide: 0 as *mut objc2::runtime::AnyObject];
-            }
-            // Also try to explicitly deactivate
-            unsafe {
                 app.deactivate();
+            }
+        }
+    }
+}
+
+/// Unhide the app before showing the popup, so macOS doesn't re-hide our window.
+/// Safe to call even if the app is not hidden.
+/// NOTE: selector is `unhideWithoutActivation` (no colon, no argument).
+pub fn unhide_app() {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(mtm) = MainThreadMarker::new() {
+            let app = NSApplication::sharedApplication(mtm);
+            unsafe {
+                let _: () = msg_send![&app, unhideWithoutActivation];
+            }
+        }
+    }
+}
+
+/// Hide the eframe window directly via NSWindow orderOut:.
+/// More reliable than egui's ViewportCommand::Visible(false) because it
+/// acts on the native window immediately, before the frame is rendered.
+/// Called on first frame to suppress the startup black window.
+pub fn hide_main_window() {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(mtm) = MainThreadMarker::new() {
+            let app = NSApplication::sharedApplication(mtm);
+            unsafe {
+                let windows: *mut objc2::runtime::AnyObject = msg_send![&app, windows];
+                let count: u64 = msg_send![windows, count];
+                if count == 0 {
+                    return;
+                }
+                let ns_window: *mut objc2::runtime::AnyObject = msg_send![windows, firstObject];
+                if ns_window.is_null() {
+                    return;
+                }
+                let _: () = msg_send![ns_window, setIsVisible: false];
             }
         }
     }
